@@ -4,6 +4,7 @@ description = """A bot to oversee games of Shack Mafia. """
 import discord
 from discord.ext import commands
 import os
+import time
 
 
 # sets working directory to bot's folder
@@ -29,19 +30,17 @@ async def on_command_error(error, ctx):
     if isinstance(error, discord.ext.commands.errors.CommandNotFound):
         pass  # ...don't need to know if commands don't exist
     if isinstance(error, discord.ext.commands.errors.CheckFailure):
-        await bot.send_message(ctx.message.channel, "You don't have permission to use this command.")
+        await ctx.send("You don't have permission to use this command.")
     elif isinstance(error, discord.ext.commands.errors.MissingRequiredArgument):
         formatter = commands.formatter.HelpFormatter()
-        await bot.send_message(ctx.message.channel, "You are missing required arguments.\n{}".format(formatter.format_help_for(ctx, ctx.command)[0]))
+        await ctx.send("You are missing required arguments.\n{}".format(formatter.format_help_for(ctx, ctx.command)[0]))
     else:
         if ctx.command:
-            await bot.send_message(ctx.message.channel, "An error occurred while processing the `{}` command.".format(ctx.command.name))
+            await ctx.send("An error occurred while processing the `{}` command.".format(ctx.command.name))
         print('Ignoring exception in command {0.command} in {0.message.channel}'.format(ctx))
         tb = traceback.format_exception(type(error), error, error.__traceback__)
         error_trace = "".join(tb)
         print(error_trace)
-        embed = discord.Embed(description=error_trace.translate(bot.escape_trans))
-        await bot.send_message(bot.err_logs_channel, "An error occurred while processing the `{}` command in channel `{}`.".format(ctx.command.name, ctx.message.channel), embed=embed)
         
 @bot.event
 async def on_error(event_method, *args, **kwargs):
@@ -51,8 +50,6 @@ async def on_error(event_method, *args, **kwargs):
     tb = traceback.format_exc()
     error_trace = "".join(tb)
     print(error_trace)
-    embed = discord.Embed(description=error_trace.translate(bot.escape_trans))
-    await bot.send_message(bot.err_logs_channel, "An error occurred while processing `{}`.".format(event_method), embed=embed)
 
 @bot.event
 async def on_ready():
@@ -61,19 +58,12 @@ async def on_ready():
         bot.server = server
         if bot.all_ready:
             break
-        bot.idiots_channel = discord.utils.get(server.channels, name="idiots")
-        bot.private_messages_channel = discord.utils.get(server.channels, name="private-messages")
-        bot.rules_channel = discord.utils.get(server.channels, name="rules")
-        bot.logs_channel = discord.utils.get(server.channels, name="server-logs")
-        bot.cmd_logs_channel = discord.utils.get(server.channels, name="cmd-logs")
-        bot.containment_channel = discord.utils.get(server.channels, name="containment")
-        bot.err_logs_channel = discord.utils.get(server.channels, name="err-logs")
-        bot.msg_logs_channel = discord.utils.get(server.channels, name="msg-logs")
-        bot.hidden_channel = discord.utils.get(server.channels, name="hiddenplace")
+        bot.mafia_channel = discord.utils.get(server.channels, name="mafia")
+        bot.day_channel = discord.utils.get(server.channels, name="day")
+        bot.pre_game_channel = discord.utils.get(server.channels, name="pre-game")
         
         bot.dead_role = discord.utils.get(server.roles, name="Dead")
         bot.nintendo_role = discord.utils.get(server.roles, name="Nintendo")
-        bot.nintendo_role
         
         print("Initialized on {}.".format(server.name))
         
@@ -82,6 +72,63 @@ async def on_ready():
 
         break
     
+bot.players_queued = []
+bot.starting = False
+bot.started = False
+        
+@bot.command(pass_context=True)
+async def queue(ctx):
+    """Queue for a game of Shack Mafia. The game needs at least 6 players to start."""
+    bot.players_queued.append(ctx.author)
+    await ctx.send("{} You have been added to the queue for a Mafia game. {}/6 players are queued.".format(ctx.author.mention, len(bot.players_queued)))
+    if len(bot.players_queued) >= 6 and not bot.starting:
+        await prepare_for_game()
+        
+@bot.command(pass_context=True)
+async def dequeue(ctx):
+    """Queue for a game of Shack Mafia. The game needs at least 6 players to start."""
+    if ctx.author in bot.players_queued:
+        bot.players_queued.remove(ctx.author)
+        await ctx.send("{} You have been removed from the queue for a Mafia game. {}/6 players are queued.".format(ctx.author.mention, len(bot.players_queued)))
+    else:
+        await ctx.send("{} You are not queued for a Mafia game.".format(ctx.author.mention))
+        
+        
+async def prepare_for_game():
+    bot.starting = True
+    await bot.pre_game_channel.send("The 6th player has queued for a game. The game will start after one minute with no new joins.")
+    timer = 60
+    current_queued = len(bot.players_queued)
+    while timer:
+        time.sleep(1)
+        timer -= 1
+        if len(bot.players_queued) != current_queued:
+            if len(bot.players_queued) < 6:
+                await bot.pre_game_channel.send("There are no longer enough players to start a game of Mafia.")
+                bot.starting = False
+                return
+            elif len(bot.players_queued) > current_queued:
+                timer = 60
+            current_queued = len(bot.players_queued)
+    await begin_game()
+    
+async def begin_game():
+    pass
+    
+    
+# GAME LOGIC BEGINS HERE
+
+class Player:
+    pass
+    
+class Role:
+    pass
+    
+class RoleCategory:
+    pass
+    
+
+# GAME LOGIC ENDS HERE
 
 with open("token") as f:
     token = f.read()
