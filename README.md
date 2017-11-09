@@ -1,7 +1,5 @@
-# Goku
-A Discord server bot by Lyricly and GriffinG1 . Designed heavily around the Nintendo Homebrew Idiot Log Discord.
-
-Although it is open source, this bot is not really designed to be used in other setups at the moment; the source is mainly just available for those interested in how it works on the Nintendo Homebrew Idiot Log server.
+# Overseer
+A Discord server bot by LyricLy, GriffinG1 and CubeBag. Designed heavily around the Shack Mafia Discord server..
 
 ## Requirements
 * Python 3.5 or above
@@ -9,3 +7,4 @@ Although it is open source, this bot is not really designed to be used in other 
 
 ## Credits
 * [Kurisu](https://github.com/ihaveamac/Kurisu) for inspiration
+* My bot [Goku](https://github.com/GriffinG1/.bot) (now managed by GriffinG1) as a foundation
