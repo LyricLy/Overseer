@@ -5,6 +5,8 @@ import discord
 from discord.ext import commands
 import os
 import time
+import traceback
+import asyncio
 
 
 # sets working directory to bot's folder
@@ -26,7 +28,7 @@ bot.escape_name = escape_name
 
 
 @bot.event
-async def on_command_error(error, ctx):
+async def on_command_error(ctx, error):
     if isinstance(error, discord.ext.commands.errors.CommandNotFound):
         pass  # ...don't need to know if commands don't exist
     if isinstance(error, discord.ext.commands.errors.CheckFailure):
@@ -41,58 +43,109 @@ async def on_command_error(error, ctx):
         tb = traceback.format_exception(type(error), error, error.__traceback__)
         error_trace = "".join(tb)
         print(error_trace)
-        
-@bot.event
-async def on_error(event_method, *args, **kwargs):
-    if isinstance(args[0], commands.errors.CommandNotFound):
-        return
-    print("Ignoring exception in {}".format(event_method))
-    tb = traceback.format_exc()
-    error_trace = "".join(tb)
-    print(error_trace)
+
 
 @bot.event
 async def on_ready():
     # this bot should only ever be in one server anyway
-    for server in bot.servers:
-        bot.server = server
-        if bot.all_ready:
-            break
+    for guild in bot.guilds:
+        bot.guild = guild
+        
         bot.mafia_channel = discord.utils.get(server.channels, name="mafia")
         bot.day_channel = discord.utils.get(server.channels, name="day")
         bot.pre_game_channel = discord.utils.get(server.channels, name="pre-game")
         
-        bot.dead_role = discord.utils.get(server.roles, name="Dead")
+        bot.dead_role = discord.utils.get(server.roles, name="Player")
+        bot.dead_role = discord.utils.get(server.roles, name="Dead/Spectator")
         bot.nintendo_role = discord.utils.get(server.roles, name="Nintendo")
         
         print("Initialized on {}.".format(server.name))
-        
-        bot.all_ready = True
-        bot._is_all_ready.set()
 
-        break
+        break  
+    
+    
+    
+# GAME LOGIC BEGINS HERE
+
+class Player:
+
+    def __init__(self, member, role):
+        self.member = member
+        self.role = role
+    
+class Role:
+
+    def __init__(self, name, night_role, win_condition, category):
+        self.name = name
+        self.night_role = night_role
+        self.win_condition = win_condition
+        self.category = category
+        category.roles.append(self)
+    
+class RoleCategory:
+
+    def __init__(self, name):
+        self.name = name
+        self.roles = []
     
 bot.players_queued = []
 bot.starting = False
 bot.started = False
+
+bot.roles = []  # this will be a list of Role objects corresponding to the different roles in the game
         
 @bot.command(pass_context=True)
 async def queue(ctx):
     """Queue for a game of Shack Mafia. The game needs at least 6 players to start."""
-    bot.players_queued.append(ctx.author)
-    await ctx.send("{} You have been added to the queue for a Mafia game. {}/6 players are queued.".format(ctx.author.mention, len(bot.players_queued)))
-    if len(bot.players_queued) >= 6 and not bot.starting:
-        await prepare_for_game()
+    if bot.started:
+        return await ctx.send("{} A Mafia game is currently active. Wait for it to be over before using this command.".format(ctx.author.mention))
+    if ctx.author not in bot.players_queued:
+        bot.players_queued.append(ctx.author)
+        await ctx.send("{} You have been added to the queue for a Mafia game. {}/6 players are queued.".format(ctx.author.mention, len(bot.players_queued)))
+        if len(bot.players_queued) >= 6 and not bot.starting:
+            await prepare_for_game()
+    else:
+        await ctx.send("{} You are already queued for a Mafia game.".format(ctx.author.mention))
         
 @bot.command(pass_context=True)
 async def dequeue(ctx):
-    """Queue for a game of Shack Mafia. The game needs at least 6 players to start."""
+    """Dequeue from a game of Shack Mafia."""
+    if bot.started:
+        return await ctx.send("{} A Mafia game is currently active. Wait for it to be over before using this command.".format(ctx.author.mention))
     if ctx.author in bot.players_queued:
         bot.players_queued.remove(ctx.author)
         await ctx.send("{} You have been removed from the queue for a Mafia game. {}/6 players are queued.".format(ctx.author.mention, len(bot.players_queued)))
     else:
         await ctx.send("{} You are not queued for a Mafia game.".format(ctx.author.mention))
         
+
+@bot.command(pass_context=True)
+async def queued(ctx):
+    """Show a list of currently queued members."""
+    if bot.started:
+        return await ctx.send("{} A Mafia game is currently active. Wait for it to be over before using this command.".format(ctx.author.mention))
+    await ctx.send("{} Currently queued members: {}".format(ctx.author.mention, ", ".join([str(x) for x in bot.players_queued])))
+    
+@bot.command(pass_context=True)
+@commands.has_permissions(administrator=True)
+async def stop(ctx):
+    """Stop any currently running or starting game and dequeue all queued members."""
+    bot.started = False
+    bot.starting = False
+    bot.players = []
+    bot.players_queued = []
+    
+@bot.command(pass_context=True)
+@commands.has_permissions(administrator=True)
+async def setqueue(ctx, number: int):
+    """Set the number of queued members to a specified amount."""
+    if len(bot.players_queued) > number:
+        for _ in range(len(bot.players_queued) - number):
+            bot.players_queued.pop()
+    elif len(bot.players_queued) < number:
+        for _ in range(number - len(bot.players_queued)):
+            bot.players_queued.append(ctx.author)
+    await ctx.send("{} Successfully set the number of currently queued players to {}.".format(ctx.author.mention, number))
         
 async def prepare_for_game():
     bot.starting = True
@@ -100,8 +153,10 @@ async def prepare_for_game():
     timer = 60
     current_queued = len(bot.players_queued)
     while timer:
-        time.sleep(1)
+        await asyncio.sleep(1)
         timer -= 1
+        if not bot.starting:
+            return
         if len(bot.players_queued) != current_queued:
             if len(bot.players_queued) < 6:
                 await bot.pre_game_channel.send("There are no longer enough players to start a game of Mafia.")
@@ -113,20 +168,18 @@ async def prepare_for_game():
     await begin_game()
     
 async def begin_game():
-    pass
+    bot.starting = False
+    bot.started = True
+    bot.players = []
     
-    
-# GAME LOGIC BEGINS HERE
+    for member in bot.guild.members:
+        if member in bot.players_queued:
+            await member.add_role(bot.players_role)
+            bot.players += Player(member, random.choice(bot.roles))
+        else:
+            await member.add_role(bot.dead_role)
 
-class Player:
-    pass
-    
-class Role:
-    pass
-    
-class RoleCategory:
-    pass
-    
+    bot.players_queued = []
 
 # GAME LOGIC ENDS HERE
 
