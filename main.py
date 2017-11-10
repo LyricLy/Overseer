@@ -1,34 +1,4 @@
 description = """A bot to oversee games of Shack Mafia. """
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#                               CHANGE ALL 1 TO 6
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # import dependencies
 import discord
 import os
