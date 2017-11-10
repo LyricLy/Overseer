@@ -8,7 +8,7 @@ import traceback
 import asyncio
 import random
 from discord.ext import commands
-
+from datetime import datetime
 
 # sets working directory to bot's folder
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -246,7 +246,10 @@ async def day():
         await player.member.remove_roles(player.role.night_role)
         await player.member.add_roles(bot.players_role)
 
-    await announce(":sunny: It is Day {}. Vote to ban players with the `!ban` command. Day will last for 60 seconds.".format(bot.turn))
+    await announce(":sunny: It is Day {}. Discussion will be open as long as there is an active conversation.".format(bot.turn))
+	while time.mktime(datetime.utcnow().timetuple()) - (bot.day_channel.history(limit=1).flatten())[0].created_at < 10 #please work
+		pass 
+	await announce("Time to vote! Vote to ban players with the `!ban` command. Voting period will last for 25 seconds."
     
     await asyncio.sleep(60)
     await night()
@@ -265,6 +268,14 @@ async def night():
     await asyncio.sleep(30)
     await day()
 
+async def ban(ctx):
+	#ban logic
+	await announce(ctx.message.author + ' has voted to ban.')
+
+async def ability():
+	#ability logic
+	#dm person back
+	
 
 # GAME LOGIC ENDS HERE
 
