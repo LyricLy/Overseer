@@ -224,7 +224,7 @@ async def day():
         player.member.add_roles(bot.players_role)
         
     await announce("It is Day {}. Vote to ban players with the `!ban` command.".format(bot.turn))
-    
+    await vote()
     await night()
     
 async def night():
@@ -239,6 +239,9 @@ async def night():
     await announce("It is Night {}. You may perform abilities using the `!ability` command by DMing the bot.".format(bot.turn))
     
     await day()
+	
+async def vote():
+	#code goes here
 
 # GAME LOGIC ENDS HERE
 
