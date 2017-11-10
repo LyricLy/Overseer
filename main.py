@@ -2,11 +2,12 @@ description = """A bot to oversee games of Shack Mafia. """
 
 # import dependencies
 import discord
-from discord.ext import commands
 import os
 import time
 import traceback
 import asyncio
+import random
+from discord.ext import commands
 
 
 # sets working directory to bot's folder
@@ -47,19 +48,21 @@ async def on_command_error(ctx, error):
 
 @bot.event
 async def on_ready():
-    # this bot should only ever be in one server anyway
+    # this bot should only ever be in one guild anyway
     for guild in bot.guilds:
         bot.guild = guild
         
-        bot.mafia_channel = discord.utils.get(server.channels, name="mafia")
-        bot.day_channel = discord.utils.get(server.channels, name="day")
-        bot.pre_game_channel = discord.utils.get(server.channels, name="pre-game")
+        bot.mafia_channel = discord.utils.get(guild.channels, name="mafia")
+        bot.day_channel = discord.utils.get(guild.channels, name="day")
+        bot.nintendo_channel = discord.utils.get(guild.channels, name="nintendo")
+        bot.pre_game_channel = discord.utils.get(guild.channels, name="pre-game")
         
-        bot.dead_role = discord.utils.get(server.roles, name="Player")
-        bot.dead_role = discord.utils.get(server.roles, name="Dead/Spectator")
-        bot.nintendo_role = discord.utils.get(server.roles, name="Nintendo")
+        bot.players_role = discord.utils.get(guild.roles, name="Player")
+        bot.dead_role = discord.utils.get(guild.roles, name="Dead/Spectator")
+        bot.nintendo_role = discord.utils.get(guild.roles, name="Nintendo")
+        bot.homebrew_role = discord.utils.get(guild.roles, name="Homebrew")
         
-        print("Initialized on {}.".format(server.name))
+        print("Initialized on {}.".format(guild.name))
 
         break  
     
@@ -91,6 +94,15 @@ class RoleCategory:
 bot.players_queued = []
 bot.starting = False
 bot.started = False
+
+bot.welcome_message = """
+The sun rises in the wonderful server of Nintendo Homebrew.
+
+Will the Nintendo staff members and informants successfully ban all of the hackers on the server?
+Will the Shackers strike back and successfully drive Nintendo out? 
+
+That remains to be seen...
+"""
 
 bot.roles = []  # this will be a list of Role objects corresponding to the different roles in the game
         
@@ -149,8 +161,8 @@ async def setqueue(ctx, number: int):
         
 async def prepare_for_game():
     bot.starting = True
-    await bot.pre_game_channel.send("The 6th player has queued for a game. The game will start after one minute with no new joins.")
-    timer = 60
+    await bot.pre_game_channel.send("The 6th player has queued for a game. The game will start after, uh, five seconds with no new joins.")
+    timer = 5
     current_queued = len(bot.players_queued)
     while timer:
         await asyncio.sleep(1)
@@ -171,15 +183,62 @@ async def begin_game():
     bot.starting = False
     bot.started = True
     bot.players = []
+    bot.turn = 0
+    bot.day = True
+    
+    await bot.pre_game_channel.send("A game of Mafia is about to begin!")
+    await asyncio.sleep(5)
     
     for member in bot.guild.members:
         if member in bot.players_queued:
-            await member.add_role(bot.players_role)
+            await member.add_roles(bot.players_role)
             bot.players += Player(member, random.choice(bot.roles))
         else:
-            await member.add_role(bot.dead_role)
+            await member.add_roles(bot.dead_role)
 
     bot.players_queued = []
+    
+    await announce(bot.welcome_message, 0)
+    await day()
+    
+async def annouce(message, channel):
+    await get_channel(channel).send(message)
+    
+async def clear(channel):
+    await get_channel(channel).purge(limit=10000)
+    
+async def get_channel(channel):
+    channels = [bot.day_channel, bot.nintendo_channel]
+    return channels[channel]
+    
+    
+async def day():
+    bot.turn += 1
+    bot.day = True
+    
+    await clear(0)
+    await clear(1)
+    
+    for player in bot.players:
+        player.member.remove_roles(player.night_role)
+        player.member.add_roles(bot.players_role)
+        
+    await announce("It is Day {}. Vote to ban players with the `!ban` command.".format(bot.turn))
+    
+    await night()
+    
+async def night():
+    bot.day = False
+    
+    await clear(0)
+    
+    for player in bot.players:
+        player.member.remove_roles(bot.players_role)
+        player.member.add_roles(player.night_role)
+    
+    await announce("It is Night {}. You may perform abilities using the `!ability` command by DMing the bot.".format(bot.turn))
+    
+    await day()
 
 # GAME LOGIC ENDS HERE
 
