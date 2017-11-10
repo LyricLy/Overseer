@@ -4,11 +4,11 @@ description = """A bot to oversee games of Shack Mafia. """
 import discord
 import os
 import time
+import datetime
 import traceback
 import asyncio
 import random
 from discord.ext import commands
-from datetime import datetime
 
 # sets working directory to bot's folder
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -87,7 +87,7 @@ async def on_ready():
             self.name = name
             self.night_role = night_role
             self.night_ability = night_ability
-            self.win_condition = win_condition
+            self.wins_with = wins_with
             self.category = category
             category.roles.append(self)
         
@@ -102,20 +102,20 @@ async def on_ready():
     bot.started = False
 
     bot.welcome_message = """
-    The sun rises in the wonderful server of Nintendo Homebrew.
+The sun rises in the wonderful server of Nintendo Homebrew.
 
-    Will the Nintendo staff members and informants successfully ban all of the hackers on the server?
-    Will the Shackers strike back and successfully drive Nintendo out? 
+Will the Nintendo staff members and informants successfully ban all of the hackers on the server?
+Will the Shackers strike back and successfully drive Nintendo out? 
 
-    That remains to be seen...
-    """
+That remains to be seen...
+"""
 
     homebrew_category = RoleCategory("Team Homebrew")
     nintendo_category = RoleCategory("Team Nintendo")
 
     bot.roles = [
-        Role("Shacker", bot.homebrew_role, [homebrew_category], [nintendo_category], homebrew_category),
-        Role("Nintendo Employee", bot.nintendo_role, [nintendo_category], [homebrew_category], nintendo_category)
+        Role("Shacker", bot.homebrew_role, [homebrew_category], None, [nintendo_category], homebrew_category),
+        Role("Nintendo Employee", bot.nintendo_role, [nintendo_category], None, [homebrew_category], nintendo_category)
     ]
         
 @bot.command(pass_context=True)
@@ -239,25 +239,27 @@ async def day():
     bot.turn += 1
     bot.day = True
     
-    await clear(0)
-    await clear(1)
-    
     for player in bot.players:
         await player.member.remove_roles(player.role.night_role)
         await player.member.add_roles(bot.players_role)
 
     await announce(":sunny: It is Day {}. Discussion will be open as long as there is an active conversation.".format(bot.turn))
-	while time.mktime(datetime.utcnow().timetuple()) - (bot.day_channel.history(limit=1).flatten())[0].created_at < 10 #please work
-		pass 
-	await announce("Time to vote! Vote to ban players with the `!ban` command. Voting period will last for 25 seconds."
     
-    await asyncio.sleep(60)
+    e = True
+    f = time.time()
+    while e:
+        async for message in bot.day_channel.history(limit=1):
+            if (datetime.datetime.now(message.created_at.tzinfo) - message.created_at).total_seconds() > 15 or time.time() - f > 120:
+                e = False
+    
+    await announce("Time to vote! Vote to ban players with the `!ban` command. Voting period will last for 25 seconds.")
+    
+    await asyncio.sleep(25)
+    await clear(0)
     await night()
     
 async def night():
     bot.day = False
-    
-    await clear(0)
     
     for player in bot.players:
         await player.member.remove_roles(bot.players_role)
@@ -266,16 +268,19 @@ async def night():
     await announce(":full_moon: It is Night {}. You may perform abilities using the `!ability` command by either DMing the bot or using any role channels you might have. Night will last for 30 seconds.".format(bot.turn))
     
     await asyncio.sleep(30)
+    await clear(0)
+    await clear(1)
     await day()
 
 async def ban(ctx):
-	#ban logic
-	await announce(ctx.message.author + ' has voted to ban.')
+     # ban logic
+     await announce(ctx.message.author + ' has voted to ban.')
 
 async def ability():
-	#ability logic
-	#dm person back
-	
+     # ability logic
+     # DM person back
+     pass
+     
 
 # GAME LOGIC ENDS HERE
 
