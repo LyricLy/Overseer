@@ -1,20 +1,50 @@
 description = """A bot to oversee games of Shack Mafia. """
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#                               CHANGE ALL 1 TO 6
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # import dependencies
 import discord
 import os
 import time
-import datetime
 import traceback
 import asyncio
 import random
 from discord.ext import commands
+from datetime import datetime
+
 
 # sets working directory to bot's folder
 dir_path = os.path.dirname(os.path.realpath(__file__))
 os.chdir(dir_path)
 
-prefix = ['!', '.']
+prefix = ['!', '.', 'please ']
 bot = commands.Bot(command_prefix=prefix, description=description, pm_help=None)
 
 
@@ -249,7 +279,7 @@ async def day():
     f = time.time()
     while e:
         async for message in bot.day_channel.history(limit=1):
-            if (datetime.datetime.now(message.created_at.tzinfo) - message.created_at).total_seconds() > 15 or time.time() - f > 120:
+            if (datetime.utcnow() - message.created_at).total_seconds() > 15 or time.time() - f > 120:
                 e = False
     
     await announce("Time to vote! Vote to ban players with the `!ban` command. Voting period will last for 25 seconds.")
@@ -272,10 +302,12 @@ async def night():
     await clear(1)
     await day()
 
+@bot.command(pass_context=True)
 async def ban(ctx):
      # ban logic
      await announce(ctx.message.author + ' has voted to ban.')
 
+@bot.command(pass_context=True)
 async def ability():
      # ability logic
      # DM person back
