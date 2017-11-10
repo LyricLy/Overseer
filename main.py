@@ -48,6 +48,10 @@ async def on_command_error(ctx, error):
 
 @bot.event
 async def on_ready():
+    global Player
+    global Role
+    global RoleCategory
+
     # this bot should only ever be in one guild anyway
     for guild in bot.guilds:
         bot.guild = guild
@@ -68,43 +72,51 @@ async def on_ready():
     
     
     
-# GAME LOGIC BEGINS HERE
+    # GAME LOGIC BEGINS HERE
 
-class Player:
 
-    def __init__(self, member, role):
-        self.member = member
-        self.role = role
-    
-class Role:
+    class Player:
 
-    def __init__(self, name, night_role, win_condition, category):
-        self.name = name
-        self.night_role = night_role
-        self.win_condition = win_condition
-        self.category = category
-        category.roles.append(self)
-    
-class RoleCategory:
+        def __init__(self, member, role):
+            self.member = member
+            self.role = role
+        
+    class Role:
 
-    def __init__(self, name):
-        self.name = name
-        self.roles = []
-    
-bot.players_queued = []
-bot.starting = False
-bot.started = False
+        def __init__(self, name, night_role, night_ability, wins_with, must_kill, category):
+            self.name = name
+            self.night_role = night_role
+            self.night_ability = night_ability
+            self.win_condition = win_condition
+            self.category = category
+            category.roles.append(self)
+        
+    class RoleCategory:
 
-bot.welcome_message = """
-The sun rises in the wonderful server of Nintendo Homebrew.
+        def __init__(self, name):
+            self.name = name
+            self.roles = []
+        
+    bot.players_queued = []
+    bot.starting = False
+    bot.started = False
 
-Will the Nintendo staff members and informants successfully ban all of the hackers on the server?
-Will the Shackers strike back and successfully drive Nintendo out? 
+    bot.welcome_message = """
+    The sun rises in the wonderful server of Nintendo Homebrew.
 
-That remains to be seen...
-"""
+    Will the Nintendo staff members and informants successfully ban all of the hackers on the server?
+    Will the Shackers strike back and successfully drive Nintendo out? 
 
-bot.roles = []  # this will be a list of Role objects corresponding to the different roles in the game
+    That remains to be seen...
+    """
+
+    homebrew_category = RoleCategory("Team Homebrew")
+    nintendo_category = RoleCategory("Team Nintendo")
+
+    bot.roles = [
+        Role("Shacker", bot.homebrew_role, [homebrew_category], [nintendo_category], homebrew_category),
+        Role("Shacker", bot.nintendo_role, [nintendo_category], [homebrew_category], nintendo_category)
+    ]
         
 @bot.command(pass_context=True)
 async def queue(ctx):
@@ -175,7 +187,7 @@ async def prepare_for_game():
                 bot.starting = False
                 return
             elif len(bot.players_queued) > current_queued:
-                timer = 60
+                timer = 5
             current_queued = len(bot.players_queued)
     await begin_game()
     
@@ -186,13 +198,16 @@ async def begin_game():
     bot.turn = 0
     bot.day = True
     
+    await clear(0)
+    await clear(1)
+    
     await bot.pre_game_channel.send("A game of Mafia is about to begin!")
     await asyncio.sleep(5)
     
     for member in bot.guild.members:
         if member in bot.players_queued:
             await member.add_roles(bot.players_role)
-            bot.players += Player(member, random.choice(bot.roles))
+            bot.players.append(Player(member, random.choice(bot.roles)))
         else:
             await member.add_roles(bot.dead_role)
 
@@ -201,11 +216,13 @@ async def begin_game():
     await announce(bot.welcome_message, 0)
     await day()
     
-async def annouce(message, channel):
-    await get_channel(channel).send(message)
+async def announce(message, channel=0):
+    target = await get_channel(channel)
+    await target.send(message)
     
 async def clear(channel):
-    await get_channel(channel).purge(limit=10000)
+    target = await get_channel(channel)
+    await target.purge(limit=10000)
     
 async def get_channel(channel):
     channels = [bot.day_channel, bot.nintendo_channel]
@@ -213,6 +230,12 @@ async def get_channel(channel):
     
     
 async def day():
+    if not bot.started:
+        for player in bot.players:
+            await player.member.remove_roles(player.role.night_role)
+
+        return await announce(":anger: The game has been halted. Aborting...")
+
     bot.turn += 1
     bot.day = True
     
@@ -220,11 +243,12 @@ async def day():
     await clear(1)
     
     for player in bot.players:
-        player.member.remove_roles(player.night_role)
-        player.member.add_roles(bot.players_role)
-        
-    await announce("It is Day {}. Vote to ban players with the `!ban` command.".format(bot.turn))
-	
+        await player.member.remove_roles(player.role.night_role)
+        await player.member.add_roles(bot.players_role)
+
+    await announce(":sunny: It is Day {}. Vote to ban players with the `!ban` command. Day will last for 60 seconds.".format(bot.turn))
+    
+    await asyncio.sleep(60)
     await night()
     
 async def night():
@@ -233,11 +257,12 @@ async def night():
     await clear(0)
     
     for player in bot.players:
-        player.member.remove_roles(bot.players_role)
-        player.member.add_roles(player.night_role)
+        await player.member.remove_roles(bot.players_role)
+        await player.member.add_roles(player.role.night_role)
     
-    await announce("It is Night {}. You may perform abilities using the `!ability` command by DMing the bot.".format(bot.turn))
+    await announce(":full_moon: It is Night {}. You may perform abilities using the `!ability` command by either DMing the bot or using any role channels you might have. Night will last for 30 seconds.".format(bot.turn))
     
+    await asyncio.sleep(30)
     await day()
 
 
