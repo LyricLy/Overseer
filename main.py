@@ -115,7 +115,7 @@ async def on_ready():
 
     bot.roles = [
         Role("Shacker", bot.homebrew_role, [homebrew_category], [nintendo_category], homebrew_category),
-        Role("Shacker", bot.nintendo_role, [nintendo_category], [homebrew_category], nintendo_category)
+        Role("Nintendo Employee", bot.nintendo_role, [nintendo_category], [homebrew_category], nintendo_category)
     ]
         
 @bot.command(pass_context=True)
