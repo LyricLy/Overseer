@@ -151,7 +151,7 @@ async def queued(ctx):
     await ctx.send("{} Currently queued members: {}".format(ctx.author.mention, ", ".join([str(x) for x in bot.players_queued])))
     
 @bot.command(pass_context=True)
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(manage_guild=True)
 async def stop(ctx):
     """Stop any currently running or starting game and dequeue all queued members."""
     bot.started = False
@@ -160,7 +160,7 @@ async def stop(ctx):
     bot.players_queued = []
     
 @bot.command(pass_context=True)
-@commands.has_permissions(administrator=True)
+@commands.has_permissions(manage_guild=True)
 async def setqueue(ctx, number: int):
     """Set the number of queued members to a specified amount."""
     if len(bot.players_queued) > number:
