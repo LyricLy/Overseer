@@ -9,6 +9,9 @@ import random
 from discord.ext import commands
 from datetime import datetime
 
+# griffy tried to delet repo
+# gg my dude
+
 
 # sets working directory to bot's folder
 dir_path = os.path.dirname(os.path.realpath(__file__))
