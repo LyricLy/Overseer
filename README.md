@@ -7,4 +7,4 @@ A Discord server bot by LyricLy, GriffinG1 and CubeBag. Designed heavily around 
 
 ## Credits
 * [Kurisu](https://github.com/ihaveamac/Kurisu) for inspiration
-* My bot [Goku](https://github.com/GriffinG1/.bot) (now managed by GriffinG1) as a foundation
+* My bot [Goku](https://github.com/GriffinG1/.bot) (now managed by GriffinG1 as .bot) as a foundation
